@@ -4,38 +4,39 @@
 
 import 'dart:async';
 
-import 'package:flutter_driver/flutter_driver.dart';
-import 'package:test/test.dart' hide TypeMatcher, isInstanceOf;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:flutter/material.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:integration_test/integration_test_driver.dart';
+import 'package:vortex_uni_beta/main.dart' as app;
 
 void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
   group('scrolling performance test', () {
-    late FlutterDriver driver;
+    testWidgets('measure', (WidgetTester tester) async {
+      app.main();
+      await tester.pumpAndSettle();
 
-    setUpAll(() async {
-      driver = await FlutterDriver.connect();
-    });
+      final Finder stockList = find.byValueKey('stock-list');
+      expect(stockList, findsOneWidget);
 
-    tearDownAll(() async {
-      driver.close();
-    });
+      final timeline = await tester.runAsync(() async {
+        final Timeline timeline = await tester.traceAction(() async {
+          // Scroll down
+          for (int i = 0; i < 5; i++) {
+            await tester.drag(stockList, const Offset(0.0, -300.0));
+            await tester.pumpAndSettle(const Duration(milliseconds: 500));
+          }
 
-    test('measure', () async {
-      final Timeline timeline = await driver.traceAction(() async {
-        // Find the scrollable stock list
-        final SerializableFinder stockList = find.byValueKey('stock-list');
-        expect(stockList, isNotNull);
-
-        // Scroll down
-        for (int i = 0; i < 5; i++) {
-          await driver.scroll(stockList, 0.0, -300.0, const Duration(milliseconds: 300));
-          await Future<void>.delayed(const Duration(milliseconds: 500));
-        }
-
-        // Scroll up
-        for (int i = 0; i < 5; i++) {
-          await driver.scroll(stockList, 0.0, 300.0, const Duration(milliseconds: 300));
-          await Future<void>.delayed(const Duration(milliseconds: 500));
-        }
+          // Scroll up
+          for (int i = 0; i < 5; i++) {
+            await tester.drag(stockList, const Offset(0.0, 300.0));
+            await tester.pumpAndSettle(const Duration(milliseconds: 500));
+          }
+        });
+        return timeline;
       });
 
       final TimelineSummary summary = TimelineSummary.summarize(timeline);
